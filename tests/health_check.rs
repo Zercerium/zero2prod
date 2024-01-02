@@ -1,22 +1,44 @@
-use std::{collections::HashMap, future::IntoFuture, net::TcpListener};
+use std::{future::IntoFuture, net::TcpListener};
 
-fn spawn_app() -> String {
+use sea_orm::{DatabaseConnection, EntityTrait, FromQueryResult, QuerySelect};
+use uuid::Uuid;
+use zero2prod::configuration::{configure_database, get_configuration};
+
+use entity::subscriptions::{self, Entity as Subscription};
+
+pub struct TestApp {
+    pub address: String,
+    pub dp_pool: DatabaseConnection,
+}
+
+async fn spawn_app() -> TestApp {
     let listener = TcpListener::bind("127.0.0.1:0").expect("Failed to bind random port");
     let port = listener.local_addr().unwrap().port();
-    let server = zero2prod::run(listener).expect("Failed to bind address");
+    let address = format!("http://127.0.0.1:{}", port);
+
+    let mut configuration = get_configuration().expect("Failed to read configuration.");
+    configuration.database.database_name = Uuid::new_v4().to_string();
+    let connection = configure_database(&configuration.database).await;
+
+    let server =
+        zero2prod::startup::run(listener, connection.clone()).expect("Failed to bind address");
     let _ = tokio::spawn(server.into_future());
-    format!("http://127.0.0.1:{}", port)
+
+    TestApp {
+        address,
+        dp_pool: connection,
+    }
 }
 
 #[tokio::test]
 async fn health_check_works() {
     // Arrange
-    let address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
 
     // Act
     let response = client
-        .get(&format!("{}/health_check", &address))
+        .get(&format!("{}/health_check", &app.address))
         .send()
         .await
         .expect("Failed to execute request.");
@@ -26,20 +48,22 @@ async fn health_check_works() {
     assert_eq!(Some(0), response.content_length());
 }
 
+#[derive(FromQueryResult)]
+struct SubscriptionsNameEmail {
+    name: String,
+    email: String,
+}
+
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
     // Arrange
-    let app_address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
-
-    let mut params = HashMap::new();
-    params.insert("name", "rust");
-    params.insert("email", "rrr");
 
     // Act
     let body = "name=le%20guin&email=ursula_le_guin%40gmail.com";
     let response = client
-        .post(&format!("{}/subscriptions", &app_address))
+        .post(&format!("{}/subscriptions", app.address))
         .header("Content-Type", "application/x-www-form-urlencoded")
         .body(body)
         .send()
@@ -48,11 +72,24 @@ async fn subscribe_returns_a_200_for_valid_form_data() {
 
     // Assert
     assert_eq!(200, response.status().as_u16());
+
+    let saved = Subscription::find()
+        .select_only()
+        .columns([subscriptions::Column::Name, subscriptions::Column::Email])
+        .into_model::<SubscriptionsNameEmail>()
+        .one(&app.dp_pool)
+        .await
+        .expect("Failed to connect to Postgres.")
+        .expect("Failed to fetch saved subscription.");
+
+    assert_eq!(saved.name, "le guin");
+    assert_eq!(saved.email, "ursula_le_guin@gmail.com");
 }
+
 #[tokio::test]
 async fn subscribe_returns_a_400_when_data_is_missing() {
     // Arrange
-    let app_address = spawn_app();
+    let app = spawn_app().await;
     let client = reqwest::Client::new();
     let test_cases = vec![
         ("name=le%20guin", "missing the email"),
@@ -62,7 +99,7 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
     for (invalid_body, error_message) in test_cases {
         // Act
         let response = client
-            .post(&format!("{}/subscriptions", &app_address))
+            .post(&format!("{}/subscriptions", &app.address))
             .header("Content-Type", "application/x-www-form-urlencoded")
             .body(invalid_body)
             .send()
@@ -71,10 +108,10 @@ async fn subscribe_returns_a_400_when_data_is_missing() {
 
         // Assert
         assert_eq!(
-            400,
+            422,
             response.status().as_u16(),
             // Additional customised error message on test failure
-            "The API did not fail with 400 Bad Request when the payload was {}.",
+            "The API did not fail with 422 Bad Request when the payload was {}.",
             error_message
         );
     }

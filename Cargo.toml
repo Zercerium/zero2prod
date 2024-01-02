@@ -2,7 +2,6 @@
 name = "zero2prod"
 version = "0.1.0"
 edition = "2021"
-
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -15,18 +14,21 @@ name = "zero2prod"
 [workspace]
 members = [".", "entity", "migration"]
 
-
 [dependencies]
+anyhow = "1.0.79"
+axum = { version = "0.7.3", features = ["http2"] }
+config = "0.13.4"
 entity = { path = "entity" }
 migration = { path = "migration" }
-
-axum = { version = "0.7.3", features = ["http2"] }
-reqwest = "0.11.23"
 sea-orm = { version = "0.12", features = [
     "sqlx-postgres",
     "runtime-tokio-rustls",
     "macros",
 ] }
 serde = { version = "1.0.194", features = ["derive"] }
+time = "0.3.31"
 tokio = { version = "1.35.1", features = ["macros", "rt-multi-thread"] }
-anyhow = "1.0.79"
+uuid = { version = "1", features = ["v4"] }
+
+[dev-dependencies]
+reqwest = "0.11.23"
