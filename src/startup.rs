@@ -1,11 +1,11 @@
-use std::net::TcpListener;
-
 use axum::{
     routing::{get, post},
     serve::Serve,
     Router,
 };
 use sea_orm::DatabaseConnection;
+use std::net::TcpListener;
+use tower_http::trace::TraceLayer;
 
 use crate::routes::{health_check, subscribe};
 
@@ -24,6 +24,7 @@ pub fn run(
         .route("/", get(|| async { "Hello, World!" }))
         .route("/health_check", get(health_check))
         .route("/subscriptions", post(subscribe))
+        .layer(TraceLayer::new_for_http())
         .with_state(state);
 
     listener.set_nonblocking(true)?;
