@@ -1,9 +1,8 @@
 use std::mem;
 
 use axum::{extract::State, http::StatusCode, Form};
-use sea_orm::{ActiveModelTrait, ActiveValue::Set};
+use sea_orm::{ActiveModelTrait, ActiveValue::Set, DbErr};
 use time::OffsetDateTime;
-use tracing::Instrument;
 use uuid::Uuid;
 
 use crate::startup::AppState;
@@ -20,49 +19,34 @@ pub struct FormData {
     name = "Adding a new subscriber",
     skip(state, form),
     fields(
-        request_id = %Uuid::new_v4(),
         subscriber_email = %form.email,
         subscriber_name = %form.name
     )
 )]
-pub async fn subscribe(State(state): State<AppState>, mut form: Form<FormData>) -> StatusCode {
-    let request_id = Uuid::new_v4();
-    let request_span = tracing::info_span!(
-        "Adding a new subscriber",
-        %request_id,
-        email = %form.email,
-        name = %form.name
-    );
-    let _request_span_guard = request_span.enter();
+pub async fn subscribe(State(state): State<AppState>, form: Form<FormData>) -> StatusCode {
+    match insert_subscribe(&state, form.0).await {
+        Ok(_) => StatusCode::OK,
+        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    }
+}
 
+#[tracing::instrument(
+    name = "Saving new subscriber details in the database",
+    skip(state, form)
+)]
+pub async fn insert_subscribe(state: &AppState, mut form: FormData) -> Result<(), DbErr> {
     let subscription = subscriptions::ActiveModel {
         id: Set(Uuid::new_v4()),
         email: Set(mem::take(&mut form.email)),
         name: Set(mem::take(&mut form.name)),
         subscribed_at: Set(OffsetDateTime::now_utc()),
     };
-
-    let query_span = tracing::info_span!("Saving new subscriber details in the database");
-
-    match subscription
+    subscription
         .insert(&state.connection)
-        .instrument(query_span)
         .await
-    {
-        Ok(_) => {
-            tracing::info!(
-                "request_id {} - New subscriber details have been saved",
-                request_id
-            );
-            StatusCode::OK
-        }
-        Err(err) => {
-            tracing::error!(
-                "request_id {} - Failed to execute query: {:?}",
-                request_id,
-                err
-            );
-            StatusCode::INTERNAL_SERVER_ERROR
-        }
-    }
+        .map_err(|err| {
+            tracing::error!("Failed to execute query: {:?}", err);
+            err
+        })?;
+    Ok(())
 }

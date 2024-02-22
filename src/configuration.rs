@@ -1,5 +1,6 @@
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectionTrait, DatabaseConnection, Statement};
+use secrecy::{ExposeSecret, Secret};
 
 #[derive(serde::Deserialize)]
 pub struct Settings {
@@ -10,7 +11,7 @@ pub struct Settings {
 #[derive(serde::Deserialize)]
 pub struct DatabaseSettings {
     pub username: String,
-    pub password: String,
+    pub password: Secret<String>,
     pub port: u16,
     pub host: String,
     pub database_name: String,
@@ -27,9 +28,10 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
 }
 
 pub async fn configure_database(config: &DatabaseSettings) -> DatabaseConnection {
-    let connection = sea_orm::Database::connect(&config.connection_string_without_db())
-        .await
-        .expect("Failed to connect to Postgres.");
+    let connection =
+        sea_orm::Database::connect(config.connection_string_without_db().expose_secret())
+            .await
+            .expect("Failed to connect to Postgres.");
 
     connection
         .query_one(Statement::from_string(
@@ -39,7 +41,7 @@ pub async fn configure_database(config: &DatabaseSettings) -> DatabaseConnection
         .await
         .expect("Failed to create database.");
 
-    let connection = sea_orm::Database::connect(&config.connection_string())
+    let connection = sea_orm::Database::connect(config.connection_string().expose_secret())
         .await
         .expect("Failed to connect to Postgres.");
     Migrator::up(&connection, None)
@@ -49,17 +51,24 @@ pub async fn configure_database(config: &DatabaseSettings) -> DatabaseConnection
 }
 
 impl DatabaseSettings {
-    pub fn connection_string(&self) -> String {
-        format!(
+    pub fn connection_string(&self) -> Secret<String> {
+        Secret::new(format!(
             "postgres://{}:{}@{}:{}/{}",
-            self.username, self.password, self.host, self.port, self.database_name
-        )
+            self.username,
+            self.password.expose_secret(),
+            self.host,
+            self.port,
+            self.database_name
+        ))
     }
 
-    pub fn connection_string_without_db(&self) -> String {
-        format!(
+    pub fn connection_string_without_db(&self) -> Secret<String> {
+        Secret::new(format!(
             "postgres://{}:{}@{}:{}",
-            self.username, self.password, self.host, self.port
-        )
+            self.username,
+            self.password.expose_secret(),
+            self.host,
+            self.port
+        ))
     }
 }

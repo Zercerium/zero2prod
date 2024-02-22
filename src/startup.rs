@@ -1,4 +1,6 @@
 use axum::{
+    body::Body,
+    http::Request,
     routing::{get, post},
     serve::Serve,
     Router,
@@ -24,7 +26,22 @@ pub fn run(
         .route("/", get(|| async { "Hello, World!" }))
         .route("/health_check", get(health_check))
         .route("/subscriptions", post(subscribe))
-        .layer(TraceLayer::new_for_http())
+        .layer(
+            // thanks to https://github.com/tokio-rs/axum/discussions/2273
+            tower::ServiceBuilder::new().layer(TraceLayer::new_for_http().make_span_with(
+                |request: &Request<Body>| {
+                    let request_id = uuid::Uuid::new_v4();
+                    tracing::span!(
+                        tracing::Level::INFO,
+                        "request",
+                        method = tracing::field::display(request.method()),
+                        uri = tracing::field::display(request.uri()),
+                        version = tracing::field::debug(request.version()),
+                        request_id = tracing::field::display(request_id)
+                    )
+                },
+            )),
+        )
         .with_state(state);
 
     listener.set_nonblocking(true)?;
