@@ -45,7 +45,11 @@ pub fn get_configuration() -> Result<Settings, config::ConfigError> {
         .add_source(config::File::from(
             configuration_directory.join(environment_filename),
         ))
-        .add_source(config::Environment::with_prefix("APP").separator("_"))
+        .add_source(
+            config::Environment::with_prefix("APP")
+                .prefix_separator("_")
+                .separator("__"),
+        )
         .build()?;
     settings.try_deserialize::<Settings>()
 }
@@ -182,6 +186,7 @@ impl Into<sea_orm::ConnectOptions> for ConnectOptions {
 }
 
 #[derive(EnumString, Display, Deserialize, Clone, Copy)]
+#[strum(serialize_all = "snake_case")]
 pub enum PostgresSslMode {
     #[strum(ascii_case_insensitive)]
     Disable,
