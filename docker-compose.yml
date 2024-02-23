@@ -13,3 +13,15 @@ services:
       POSTGRES_DB: newsletter
     ports:
       - "5432:5432"
+  
+  zero2prod:
+    build: .
+    restart: always
+    environment:
+      APP_ENVIRONMENT: "production"
+      APP_DATABASE_HOST: "db"
+    ports:
+      - "8000:8000"
+    depends_on:
+      - db
+  

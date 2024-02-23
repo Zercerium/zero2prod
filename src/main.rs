@@ -14,10 +14,14 @@ async fn main() -> anyhow::Result<()> {
 
     let connection =
         sea_orm::Database::connect(configuration.database.connection_string().expose_secret())
-            .await?;
+            .await
+            .expect("Failed to connect to the database.");
     Migrator::up(&connection, None).await?;
 
-    let address = format!("127.0.0.1:{}", configuration.application_port);
+    let address = format!(
+        "{}:{}",
+        configuration.application.host, configuration.application.port
+    );
     let listener = TcpListener::bind(address)?;
     Ok(run(listener, connection)?.await?)
 }
