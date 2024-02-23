@@ -1,6 +1,9 @@
 use migration::{Migrator, MigratorTrait};
 use sea_orm::{ConnectionTrait, DatabaseConnection, Statement};
 use secrecy::{ExposeSecret, Secret};
+use serde::Deserialize;
+use serde_aux::field_attributes::deserialize_number_from_string;
+use strum::{Display, EnumString};
 
 #[derive(serde::Deserialize)]
 pub struct Settings {
@@ -12,13 +15,16 @@ pub struct Settings {
 pub struct DatabaseSettings {
     pub username: String,
     pub password: Secret<String>,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
     pub database_name: String,
+    pub ssl_mode: PostgresSslMode,
 }
 
 #[derive(serde::Deserialize)]
 pub struct ApplicationSettings {
+    #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
 }
@@ -75,10 +81,9 @@ impl TryFrom<String> for Environment {
 }
 
 pub async fn configure_database(config: &DatabaseSettings) -> DatabaseConnection {
-    let connection =
-        sea_orm::Database::connect(config.connection_string_without_db().expose_secret())
-            .await
-            .expect("Failed to connect to Postgres.");
+    let connection = sea_orm::Database::connect(config.without_db())
+        .await
+        .expect("Failed to connect to Postgres.");
 
     connection
         .query_one(Statement::from_string(
@@ -88,7 +93,7 @@ pub async fn configure_database(config: &DatabaseSettings) -> DatabaseConnection
         .await
         .expect("Failed to create database.");
 
-    let connection = sea_orm::Database::connect(config.connection_string().expose_secret())
+    let connection = sea_orm::Database::connect(config.with_db())
         .await
         .expect("Failed to connect to Postgres.");
     Migrator::up(&connection, None)
@@ -98,24 +103,102 @@ pub async fn configure_database(config: &DatabaseSettings) -> DatabaseConnection
 }
 
 impl DatabaseSettings {
-    pub fn connection_string(&self) -> Secret<String> {
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}/{}",
-            self.username,
-            self.password.expose_secret(),
-            self.host,
-            self.port,
-            self.database_name
-        ))
+    pub fn without_db(&self) -> ConnectOptions {
+        ConnectOptions::new()
+            .host(&self.host)
+            .username(&self.username)
+            .password(&self.password.expose_secret())
+            .port(self.port)
+            .ssl_mode(self.ssl_mode)
     }
 
-    pub fn connection_string_without_db(&self) -> Secret<String> {
-        Secret::new(format!(
-            "postgres://{}:{}@{}:{}",
-            self.username,
-            self.password.expose_secret(),
-            self.host,
-            self.port
-        ))
+    pub fn with_db(&self) -> ConnectOptions {
+        self.without_db().database(&self.database_name)
+    }
+}
+
+pub struct ConnectOptions {
+    host: Option<String>,
+    username: Option<String>,
+    password: Option<String>,
+    port: Option<u16>,
+    database: Option<String>,
+    ssl_mode: Option<PostgresSslMode>,
+}
+
+impl ConnectOptions {
+    pub fn new() -> Self {
+        Self {
+            host: None,
+            username: None,
+            password: None,
+            port: None,
+            database: None,
+            ssl_mode: None,
+        }
+    }
+    pub fn host(mut self, host: &str) -> Self {
+        self.host = Some(host.to_string());
+        self
+    }
+    pub fn username(mut self, username: &str) -> Self {
+        self.username = Some(username.to_string());
+        self
+    }
+    pub fn password(mut self, password: &str) -> Self {
+        self.password = Some(password.to_string());
+        self
+    }
+    pub fn port(mut self, port: u16) -> Self {
+        self.port = Some(port);
+        self
+    }
+    pub fn database(mut self, database: &str) -> Self {
+        self.database = Some(database.to_string());
+        self
+    }
+    pub fn ssl_mode(mut self, ssl_mode: PostgresSslMode) -> Self {
+        self.ssl_mode = Some(ssl_mode);
+        self
+    }
+}
+
+impl Into<sea_orm::ConnectOptions> for ConnectOptions {
+    fn into(self) -> sea_orm::ConnectOptions {
+        let username = self.username.expect("username not set");
+        let password = self.password.expect("password not set");
+        let host = self.host.expect("host not set");
+        let port = self.port.expect("port not set");
+        let ssl_mode = self.ssl_mode.unwrap_or_default();
+        let url = format!("postgres://{}:{}@{}:{}", username, password, host, port);
+        let url = match self.database {
+            Some(database) => format!("{}/{}", url, database).to_string(),
+            None => url,
+        };
+        let url = format!("{}?sslmode={}", url, ssl_mode);
+        let conn = sea_orm::ConnectOptions::new(&url);
+        conn
+    }
+}
+
+#[derive(EnumString, Display, Deserialize, Clone, Copy)]
+pub enum PostgresSslMode {
+    #[strum(ascii_case_insensitive)]
+    Disable,
+    #[strum(ascii_case_insensitive)]
+    Allow,
+    #[strum(ascii_case_insensitive)]
+    Prefer,
+    #[strum(ascii_case_insensitive)]
+    Require,
+    #[strum(ascii_case_insensitive)]
+    VerifyCa,
+    #[strum(ascii_case_insensitive)]
+    VerifyFull,
+}
+
+impl Default for PostgresSslMode {
+    fn default() -> Self {
+        PostgresSslMode::Prefer
     }
 }

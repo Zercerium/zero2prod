@@ -19,7 +19,8 @@ services:
     restart: always
     environment:
       APP_ENVIRONMENT: "production"
-      APP_DATABASE_HOST: "db"
+      APP_DATABASE__HOST: "db"
+      APP_DATABASE__SSL_MODE: "prefer"
     ports:
       - "8000:8000"
     depends_on:

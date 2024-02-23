@@ -28,6 +28,8 @@ sea-orm = { version = "0.12.14", features = [
 ] }
 secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1.0.197", features = ["derive"] }
+serde-aux = "4.5.0"
+strum = { version = "0.26", features = ["derive"] }
 time = "0.3.34"
 tokio = { version = "1.36.0", features = ["macros", "rt-multi-thread"] }
 tower = "0.4.13"
