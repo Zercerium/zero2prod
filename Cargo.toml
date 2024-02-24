@@ -40,7 +40,12 @@ tracing-subscriber = { version = "0.3.18", features = [
     "registry",
     "env-filter",
 ] }
+unicode-segmentation = "1.11.0"
 uuid = { version = "1.7.0", features = ["v4"] }
+validator = "0.16.1"
 
 [dev-dependencies]
+claims = "0.7.1"
+fake = "2.9.2"
+proptest = "1.4.0"
 reqwest = "0.11.24"

@@ -5,7 +5,10 @@ use sea_orm::{ActiveModelTrait, ActiveValue::Set, DbErr};
 use time::OffsetDateTime;
 use uuid::Uuid;
 
-use crate::startup::AppState;
+use crate::{
+    domain::{NewSubscriber, SubscriberEmail, SubscriberName},
+    startup::AppState,
+};
 
 use entity::subscriptions::{self};
 
@@ -13,6 +16,15 @@ use entity::subscriptions::{self};
 pub struct FormData {
     email: String,
     name: String,
+}
+
+impl TryFrom<FormData> for NewSubscriber {
+    type Error = String;
+    fn try_from(value: FormData) -> Result<Self, Self::Error> {
+        let name = SubscriberName::parse(value.name)?;
+        let email = SubscriberEmail::parse(value.email)?;
+        Ok(Self { email, name })
+    }
 }
 
 #[tracing::instrument(
@@ -24,7 +36,13 @@ pub struct FormData {
     )
 )]
 pub async fn subscribe(State(state): State<AppState>, form: Form<FormData>) -> StatusCode {
-    match insert_subscribe(&state, form.0).await {
+    let new_subscriber = match form.0.try_into() {
+        Ok(subscriber) => subscriber,
+        Err(_) => {
+            return StatusCode::BAD_REQUEST;
+        }
+    };
+    match insert_subscribe(&state, new_subscriber).await {
         Ok(_) => StatusCode::OK,
         Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
     }
@@ -32,13 +50,16 @@ pub async fn subscribe(State(state): State<AppState>, form: Form<FormData>) -> S
 
 #[tracing::instrument(
     name = "Saving new subscriber details in the database",
-    skip(state, form)
+    skip(state, new_subscriber)
 )]
-pub async fn insert_subscribe(state: &AppState, mut form: FormData) -> Result<(), DbErr> {
+pub async fn insert_subscribe(
+    state: &AppState,
+    new_subscriber: NewSubscriber,
+) -> Result<(), DbErr> {
     let subscription = subscriptions::ActiveModel {
         id: Set(Uuid::new_v4()),
-        email: Set(mem::take(&mut form.email)),
-        name: Set(mem::take(&mut form.name)),
+        email: Set(mem::take(&mut new_subscriber.email.into())),
+        name: Set(mem::take(&mut new_subscriber.name.into())),
         subscribed_at: Set(OffsetDateTime::now_utc()),
     };
     subscription

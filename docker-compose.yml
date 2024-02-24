@@ -12,7 +12,8 @@ services:
       POSTGRES_PASSWORD: password
       POSTGRES_DB: newsletter
     ports:
-      - "5432:5432"
+      - "5432:5432" # This isnt needed and should be removed to not expose this port without a good reason
+                    #, only here cause to test the db connection from the host machine and running tests fast
   
   zero2prod:
     build: .
