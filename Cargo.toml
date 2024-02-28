@@ -49,3 +49,6 @@ claims = "0.7.1"
 fake = "2.9.2"
 proptest = "1.4.0"
 reqwest = "0.11.24"
+
+[profile.release]
+strip = "symbols"
