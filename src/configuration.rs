@@ -5,13 +5,16 @@ use serde::Deserialize;
 use serde_aux::field_attributes::deserialize_number_from_string;
 use strum::{Display, EnumString};
 
-#[derive(serde::Deserialize)]
+use crate::domain::SubscriberEmail;
+
+#[derive(serde::Deserialize, Clone)]
 pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
+    pub email_client: EmailClientSettings,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct DatabaseSettings {
     pub username: String,
     pub password: Secret<String>,
@@ -22,11 +25,29 @@ pub struct DatabaseSettings {
     pub ssl_mode: PostgresSslMode,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct ApplicationSettings {
     #[serde(deserialize_with = "deserialize_number_from_string")]
     pub port: u16,
     pub host: String,
+}
+
+#[derive(serde::Deserialize, Clone)]
+pub struct EmailClientSettings {
+    pub base_url: String,
+    pub sender_email: String,
+    pub authorization_token: Secret<String>,
+    pub timeout_milliseconds: u64,
+}
+
+impl EmailClientSettings {
+    pub fn sender(&self) -> Result<SubscriberEmail, String> {
+        SubscriberEmail::parse(self.sender_email.clone())
+    }
+
+    pub fn timeout(&self) -> std::time::Duration {
+        std::time::Duration::from_millis(self.timeout_milliseconds)
+    }
 }
 
 pub fn get_configuration() -> Result<Settings, config::ConfigError> {
@@ -111,7 +132,7 @@ impl DatabaseSettings {
         ConnectOptions::new()
             .host(&self.host)
             .username(&self.username)
-            .password(&self.password.expose_secret())
+            .password(self.password.expose_secret())
             .port(self.port)
             .ssl_mode(self.ssl_mode)
     }
@@ -167,31 +188,37 @@ impl ConnectOptions {
     }
 }
 
-impl Into<sea_orm::ConnectOptions> for ConnectOptions {
-    fn into(self) -> sea_orm::ConnectOptions {
-        let username = self.username.expect("username not set");
-        let password = self.password.expect("password not set");
-        let host = self.host.expect("host not set");
-        let port = self.port.expect("port not set");
-        let ssl_mode = self.ssl_mode.unwrap_or_default();
+impl Default for ConnectOptions {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl From<ConnectOptions> for sea_orm::ConnectOptions {
+    fn from(val: ConnectOptions) -> Self {
+        let username = val.username.expect("username not set");
+        let password = val.password.expect("password not set");
+        let host = val.host.expect("host not set");
+        let port = val.port.expect("port not set");
+        let ssl_mode = val.ssl_mode.unwrap_or_default();
         let url = format!("postgres://{}:{}@{}:{}", username, password, host, port);
-        let url = match self.database {
+        let url = match val.database {
             Some(database) => format!("{}/{}", url, database).to_string(),
             None => url,
         };
         let url = format!("{}?sslmode={}", url, ssl_mode);
-        let conn = sea_orm::ConnectOptions::new(&url);
-        conn
+        sea_orm::ConnectOptions::new(url)
     }
 }
 
-#[derive(EnumString, Display, Deserialize, Clone, Copy)]
+#[derive(EnumString, Display, Deserialize, Default, Clone, Copy)]
 #[strum(serialize_all = "snake_case")]
 pub enum PostgresSslMode {
     #[strum(ascii_case_insensitive)]
     Disable,
     #[strum(ascii_case_insensitive)]
     Allow,
+    #[default]
     #[strum(ascii_case_insensitive)]
     Prefer,
     #[strum(ascii_case_insensitive)]
@@ -200,10 +227,4 @@ pub enum PostgresSslMode {
     VerifyCa,
     #[strum(ascii_case_insensitive)]
     VerifyFull,
-}
-
-impl Default for PostgresSslMode {
-    fn default() -> Self {
-        PostgresSslMode::Prefer
-    }
 }

@@ -28,3 +28,16 @@ docker manifest create \
 
 docker manifest push {REPO}/{USER}/zero2prod:musl-cross
 ```
+
+## E-Mail
+- normally I don't want to include an external (for this tutorial) service so suggested postmark wouldn't be an option.
+- cuttlefish & postal seems a bit overkill setup wise, also if in general they seem interesting
+    - not the biggest ruby fan, performance wise
+- would be interesting to test out libs like lettre, also if a lot of the functionality from an full powered solution like postmark, etc. will be lost.
+- so back to mailproviders; Options:
+    - Postmark
+    - Mailgun
+    - Mailjet
+    - mailersend
+    - sendgrid
+- i will use mailersend (This selection was not based on any facts, just personal preferences)

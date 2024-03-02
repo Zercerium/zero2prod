@@ -1,8 +1,11 @@
-use std::net::TcpListener;
-
-use migration::{Migrator, MigratorTrait};
+use zero2prod::configuration::get_configuration;
+use zero2prod::startup::Application;
 use zero2prod::telemetry::{get_subscriber, init_subscriber};
-use zero2prod::{configuration::get_configuration, startup::run};
+
+use mimalloc::MiMalloc;
+
+#[global_allocator]
+static GLOBAL: MiMalloc = MiMalloc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -10,16 +13,7 @@ async fn main() -> anyhow::Result<()> {
     init_subscriber(subscriber);
 
     let configuration = get_configuration().expect("Failed to read configuration.");
-
-    let connection = sea_orm::Database::connect(configuration.database.with_db())
-        .await
-        .expect("Failed to connect to the database.");
-    Migrator::up(&connection, None).await?;
-
-    let address = format!(
-        "{}:{}",
-        configuration.application.host, configuration.application.port
-    );
-    let listener = TcpListener::bind(address)?;
-    Ok(run(listener, connection)?.await?)
+    let application = Application::build(configuration).await?;
+    application.run_until_stopped().await?;
+    Ok(())
 }

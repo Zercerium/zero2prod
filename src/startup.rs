@@ -5,22 +5,34 @@ use axum::{
     serve::Serve,
     Router,
 };
+use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
 use std::net::TcpListener;
+use std::sync::Arc;
 use tower_http::trace::TraceLayer;
 
-use crate::routes::{health_check, subscribe};
+use crate::{
+    configuration::Settings,
+    email_client::EmailClient,
+    routes::{health_check, subscribe},
+};
 
 #[derive(Clone)]
 pub struct AppState {
     pub connection: DatabaseConnection,
+    pub email_client: Arc<EmailClient>,
 }
 
 pub fn run(
     listener: TcpListener,
     connection: DatabaseConnection,
+    email_client: EmailClient,
 ) -> Result<Serve<Router, Router>, std::io::Error> {
-    let state = AppState { connection };
+    let email_client = Arc::new(email_client);
+    let state = AppState {
+        connection,
+        email_client,
+    };
 
     let app = Router::new()
         .route("/", get(|| async { "Hello, World!" }))
@@ -49,4 +61,48 @@ pub fn run(
 
     let server = axum::serve(listener, app);
     Ok(server)
+}
+
+pub struct Application {
+    port: u16,
+    server: Serve<Router, Router>,
+}
+
+impl Application {
+    pub async fn build(configuration: Settings) -> anyhow::Result<Self> {
+        let connection = sea_orm::Database::connect(configuration.database.with_db())
+            .await
+            .expect("Failed to connect to the database.");
+        Migrator::up(&connection, None).await?;
+
+        let sender_email = configuration
+            .email_client
+            .sender()
+            .expect("Invalid sender email address.");
+        let timeout = configuration.email_client.timeout();
+        let email_client = EmailClient::new(
+            configuration.email_client.base_url,
+            sender_email,
+            configuration.email_client.authorization_token,
+            timeout,
+        );
+
+        let address = format!(
+            "{}:{}",
+            configuration.application.host, configuration.application.port
+        );
+        let listener = TcpListener::bind(address)?;
+        let port = listener.local_addr().unwrap().port();
+        let server = run(listener, connection, email_client)?;
+
+        Ok(Self { port, server })
+    }
+
+    pub fn port(&self) -> u16 {
+        self.port
+    }
+
+    pub async fn run_until_stopped(self) -> Result<(), std::io::Error> {
+        self.server.await
+    }
 }

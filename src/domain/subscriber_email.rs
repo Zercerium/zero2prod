@@ -19,9 +19,9 @@ impl AsRef<str> for SubscriberEmail {
     }
 }
 
-impl Into<String> for SubscriberEmail {
-    fn into(self) -> String {
-        self.0
+impl From<SubscriberEmail> for String {
+    fn from(val: SubscriberEmail) -> Self {
+        val.0
     }
 }
 

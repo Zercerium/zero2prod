@@ -4,6 +4,15 @@ FROM --platform=$BUILDPLATFORM messense/rust-musl-cross:x86_64-musl as builder-f
 ARG TARGET=x86_64-unknown-linux-musl
 
 FROM builder-for-$BUILDOS-$TARGETARCH as chef
+# https://github.com/rui314/mold?tab=readme-ov-file#compile-mold
+RUN git clone https://github.com/rui314/mold.git \
+    && mkdir mold/build \
+    && cd mold/build \
+    && git checkout v2.4.1 \
+    && ../install-build-deps.sh \
+    && cmake -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=c++ .. \
+    && cmake --build . -j $(nproc) \
+    && sudo cmake --build . --target install
 RUN cargo install cargo-chef
 WORKDIR /app
 
