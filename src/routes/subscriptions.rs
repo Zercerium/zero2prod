@@ -7,6 +7,7 @@ use uuid::Uuid;
 
 use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
+    email_client::EmailClient,
     startup::AppState,
 };
 
@@ -36,16 +37,26 @@ impl TryFrom<FormData> for NewSubscriber {
     )
 )]
 pub async fn subscribe(State(state): State<AppState>, form: Form<FormData>) -> StatusCode {
-    let new_subscriber = match form.0.try_into() {
+    let new_subscriber: NewSubscriber = match form.0.try_into() {
         Ok(subscriber) => subscriber,
         Err(_) => {
             return StatusCode::BAD_REQUEST;
         }
     };
-    match insert_subscribe(&state, new_subscriber).await {
-        Ok(_) => StatusCode::OK,
-        Err(_) => StatusCode::INTERNAL_SERVER_ERROR,
+    if insert_subscribe(&state, new_subscriber.clone())
+        .await
+        .is_err()
+    {
+        return StatusCode::INTERNAL_SERVER_ERROR;
     }
+    let email_client = state.email_client;
+    if send_confirmation_email(&email_client, new_subscriber, &state.base_url)
+        .await
+        .is_err()
+    {
+        return StatusCode::INTERNAL_SERVER_ERROR;
+    }
+    StatusCode::OK
 }
 
 #[tracing::instrument(
@@ -61,6 +72,7 @@ pub async fn insert_subscribe(
         email: Set(mem::take(&mut new_subscriber.email.into())),
         name: Set(mem::take(&mut new_subscriber.name.into())),
         subscribed_at: Set(OffsetDateTime::now_utc()),
+        status: Set("pending_confirmation".to_string()),
     };
     subscription
         .insert(&state.connection)
@@ -70,4 +82,31 @@ pub async fn insert_subscribe(
             err
         })?;
     Ok(())
+}
+
+#[tracing::instrument(
+    name = "Send a confirmation email to a new subscriber",
+    skip(email_client, new_subscriber)
+)]
+pub async fn send_confirmation_email(
+    email_client: &EmailClient,
+    new_subscriber: NewSubscriber,
+    base_url: &str,
+) -> Result<(), reqwest::Error> {
+    let confirmation_link = format!(
+        "{}/subscriptions/confirm?subscription_token=mytoken",
+        base_url
+    );
+    let plain_body = format!(
+        "Welcome to our newsletter!\nVisit {} to confirm your subscription.",
+        confirmation_link
+    );
+    let html_body = format!(
+        "Welcome to our newsletter!<br />\
+    Click <a href=\"{}\">here</a> to confirm your subscription.",
+        confirmation_link
+    );
+    email_client
+        .send_email(new_subscriber.email, "Welcome!", &html_body, &plain_body)
+        .await
 }

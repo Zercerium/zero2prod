@@ -6,6 +6,7 @@ This repository contains the code from the book along with changes i made becaus
 
 ## ToDo
 - [ ] (skipped the Digital Ocean Deployment) Local Deployment on HomeLab triggered through GitHub
+    - [ ] zero downtime?
 - [ ] revisit ConnectOptions in configuration.rs. There are no PgConnectOptions in SeaORM and ConnectOption from SeaORM don't allow you to use a builder like pattern. It only allow you to pass a connection String.
 - [x] Cross Compilation for Alpine base image (even smaller bundle size and lower attack surface ^^)
     - [x] but also allow different platforms (amd64 & armv8)
