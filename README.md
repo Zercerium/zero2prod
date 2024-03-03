@@ -17,6 +17,9 @@ This repository contains the code from the book along with changes i made becaus
     - [ ] Add validation on the incoming token, we are currently passing the raw user input straight into a query (thanks sqlx for protecting us from SQL injections <3);
     - [ ] Use a proper templating solution for our emails (e.g.tera);
     - [ ] Anything that comes to your mind!
+        - [ ] something goes wrong while email send api request
+- [ ] config validation
+- [x] testing if it works with mailersend
 
 ## Docker
 
