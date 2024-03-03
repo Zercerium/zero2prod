@@ -9,23 +9,23 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(SubscriptionsTokens::Table)
+                    .table(SubscriptionTokens::Table)
                     .if_not_exists()
                     .col(
-                        ColumnDef::new(SubscriptionsTokens::SubscriptionsToken)
+                        ColumnDef::new(SubscriptionTokens::SubscriptionToken)
                             .text()
                             .not_null()
                             .primary_key(),
                     )
                     .col(
-                        ColumnDef::new(SubscriptionsTokens::SubscriberId)
+                        ColumnDef::new(SubscriptionTokens::SubscriberId)
                             .uuid()
                             .not_null(),
                     )
                     .foreign_key(
                         ForeignKeyCreateStatement::new()
-                            .from_tbl(SubscriptionsTokens::Table)
-                            .from_col(SubscriptionsTokens::SubscriberId)
+                            .from_tbl(SubscriptionTokens::Table)
+                            .from_col(SubscriptionTokens::SubscriberId)
                             .to_tbl(Subscriptions::Table)
                             .to_col(Subscriptions::Id)
                             .on_delete(ForeignKeyAction::Cascade)
@@ -39,15 +39,15 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(SubscriptionsTokens::Table).to_owned())
+            .drop_table(Table::drop().table(SubscriptionTokens::Table).to_owned())
             .await
     }
 }
 
 #[derive(DeriveIden)]
-enum SubscriptionsTokens {
+enum SubscriptionTokens {
     Table,
-    SubscriptionsToken,
+    SubscriptionToken,
     SubscriberId,
 }
 
