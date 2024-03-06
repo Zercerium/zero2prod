@@ -5,9 +5,7 @@ use axum::{
     response::{IntoResponse, Response},
     Json,
 };
-use sea_orm::{
-    ColumnTrait, DatabaseConnection, DerivePartialModel, EntityTrait, FromQueryResult, QueryFilter,
-};
+use sea_orm::{ColumnTrait, DatabaseConnection, EntityTrait, QueryFilter, QuerySelect};
 
 use entity::subscriptions::{self, Entity as Subscriptions};
 use serde::Serialize;
@@ -102,23 +100,16 @@ pub async fn publish_newsletter(
 async fn get_confirmed_subscribers(
     conn: &DatabaseConnection,
 ) -> Result<Vec<Result<ConfirmedSubscriber, anyhow::Error>>, anyhow::Error> {
-    #[derive(DerivePartialModel, FromQueryResult)]
-    #[sea_orm(entity = "Subscriptions")]
-    struct Row {
-        email: String,
-    }
-
-    let rows = Subscriptions::find()
+    Ok(Subscriptions::find()
         .filter(subscriptions::Column::Status.contains("confirmed"))
-        .into_partial_model::<Row>()
+        .select_only()
+        .column(subscriptions::Column::Email)
         .all(conn)
-        .await?;
-    let confirmed_subscribers = rows
+        .await?
         .into_iter()
         .map(|r| match SubscriberEmail::parse(r.email) {
             Ok(email) => Ok(ConfirmedSubscriber { email }),
             Err(error) => Err(anyhow::anyhow!(error)),
         })
-        .collect();
-    Ok(confirmed_subscribers)
+        .collect())
 }
