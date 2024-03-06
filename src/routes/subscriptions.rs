@@ -2,7 +2,7 @@ use std::mem;
 
 use anyhow::Context;
 use axum::{
-    extract::{FromRequest, State},
+    extract::State,
     http::StatusCode,
     response::{IntoResponse, Response},
     Form,
@@ -16,11 +16,14 @@ use uuid::Uuid;
 use crate::{
     domain::{NewSubscriber, SubscriberEmail, SubscriberName},
     email_client::EmailClient,
+    routes::AppJson,
     startup::AppState,
 };
 
 use entity::subscription_tokens::{self};
 use entity::subscriptions::{self};
+
+use super::error_chain_fmt;
 
 #[derive(serde::Deserialize, Debug)]
 pub struct FormData {
@@ -143,7 +146,7 @@ pub async fn send_confirmation_email(
         confirmation_link
     );
     email_client
-        .send_email(new_subscriber.email, "Welcome!", &html_body, &plain_body)
+        .send_email(&new_subscriber.email, "Welcome!", &html_body, &plain_body)
         .await
 }
 
@@ -219,30 +222,4 @@ impl std::fmt::Debug for StoreTokenError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         error_chain_fmt(self, f)
     }
-}
-
-#[derive(FromRequest)]
-#[from_request(via(axum::Json), rejection(SubscribeError))]
-struct AppJson<T>(T);
-
-impl<T> IntoResponse for AppJson<T>
-where
-    axum::Json<T>: IntoResponse,
-{
-    fn into_response(self) -> Response {
-        axum::Json(self.0).into_response()
-    }
-}
-
-fn error_chain_fmt(
-    e: &impl std::error::Error,
-    f: &mut std::fmt::Formatter<'_>,
-) -> std::fmt::Result {
-    writeln!(f, "{}\n", e)?;
-    let mut current = e.source();
-    while let Some(cause) = current {
-        writeln!(f, "Caused by:\n\t{}", cause)?;
-        current = cause.source();
-    }
-    Ok(())
 }
