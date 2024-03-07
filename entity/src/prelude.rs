@@ -2,3 +2,4 @@
 
 pub use super::subscription_tokens::Entity as SubscriptionTokens;
 pub use super::subscriptions::Entity as Subscriptions;
+pub use super::users::Entity as Users;
