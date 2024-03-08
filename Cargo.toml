@@ -19,13 +19,13 @@ members = [".", "entity", "migration"]
 anyhow = "1.0.80"
 argon2 = { version = "0.5.3", features = ["std"] }
 axum = { version = "0.7.4", features = ["http2", "macros"] }
+axum-extra = { version = "0.9.2", features = ["cookie"] }
+axum-flash = "0.8.0"
 axum-macros = { version = "0.4.1" }
 base64 = "0.22.0"
 config = "0.14.0"
 entity = { path = "entity" }
 handlebars = "5.1.0"
-hex = "0.4.3"
-hmac = { version = "0.12.1", features = ["std"] }
 htmlescape = "0.3.1"
 migration = { path = "migration" }
 mimalloc = "0.1.39"
@@ -34,6 +34,7 @@ rand = { version = "0.8.5", features = ["std_rng"] }
 reqwest = { version = "0.11.24", default-features = false, features = [
     "json",
     "rustls-tls",
+    "cookies",
 ] }
 sea-orm = { version = "0.12.14", features = [
     "sqlx-postgres",
@@ -44,7 +45,6 @@ secrecy = { version = "0.8.0", features = ["serde"] }
 serde = { version = "1.0.197", features = ["derive"] }
 serde-aux = "4.5.0"
 serde_json = "1.0.114"
-sha2 = "0.10.8"
 strum = { version = "0.26", features = ["derive"] }
 thiserror = "1.0.57"
 time = "0.3.34"

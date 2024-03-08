@@ -1,12 +1,12 @@
 use axum::{
     body::Body,
     extract::State,
-    http::{header, HeaderMap, StatusCode},
-    response::{IntoResponse, Response},
+    http::{header, StatusCode},
+    response::{IntoResponse, Redirect, Response},
     Form,
 };
-use hmac::{Hmac, Mac};
-use secrecy::{ExposeSecret, Secret};
+use axum_extra::extract::{cookie::Cookie, CookieJar};
+use secrecy::Secret;
 
 use crate::{
     authentication::{validate_credentials, AuthError, Credentials},
@@ -24,7 +24,11 @@ pub struct FormData {
     skip(state, form),
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
-pub async fn login(State(state): State<AppState>, Form(form): Form<FormData>) -> Response {
+pub async fn login(
+    State(state): State<AppState>,
+    jar: CookieJar,
+    Form(form): Form<FormData>,
+) -> Response {
     // ) -> Result<Response, LoginError> {
     let credentials = Credentials {
         username: form.username,
@@ -45,24 +49,11 @@ pub async fn login(State(state): State<AppState>, Form(form): Form<FormData>) ->
                 AuthError::InvalidCredentials(_) => LoginError::AuthError(e.into()),
                 AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
             };
-            let query_string = format!("error={}", urlencoding::Encoded::new(e.to_string()));
-            let hmac_tag = {
-                let mut mac = Hmac::<sha2::Sha256>::new_from_slice(
-                    state.hmac_secret.0.expose_secret().as_bytes(),
-                )
-                .unwrap();
-                mac.update(query_string.as_bytes());
-                mac.finalize().into_bytes()
-            };
-            let mut header = HeaderMap::new();
-            header.insert(
-                header::LOCATION,
-                format!("/login?{query_string}&tag={hmac_tag:x}")
-                    .parse()
-                    .unwrap(),
-            );
 
-            (StatusCode::SEE_OTHER, header).into_response()
+            let cookie = Cookie::new("_flash", e.to_string());
+            let jar = jar.add(cookie);
+
+            (jar, Redirect::to("/login")).into_response()
         }
     }
 }
