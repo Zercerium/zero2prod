@@ -1,5 +1,7 @@
 application:
+  base_url: "http://localhost:8000"
   port: 8000
+  hmac_secret: "long-and-very-secret-random-key-needed-to-verify-message-integrity"
 database:
   host: "127.0.0.1"
   port: 5432

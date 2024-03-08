@@ -7,6 +7,7 @@ use axum::{
 };
 use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
+use secrecy::Secret;
 use std::net::TcpListener;
 use std::sync::Arc;
 use tower_http::trace::TraceLayer;
@@ -14,7 +15,7 @@ use tower_http::trace::TraceLayer;
 use crate::{
     configuration::Settings,
     email_client::EmailClient,
-    routes::{confirm, health_check, publish_newsletter, subscribe},
+    routes::{confirm, health_check, home, login, login_form, publish_newsletter, subscribe},
 };
 
 #[derive(Clone)]
@@ -22,6 +23,7 @@ pub struct AppState {
     pub connection: DatabaseConnection,
     pub email_client: Arc<EmailClient>,
     pub base_url: String,
+    pub hmac_secret: HmacSecret,
 }
 
 pub struct Application {
@@ -59,6 +61,7 @@ impl Application {
             connection,
             email_client,
             configuration.application.base_url,
+            configuration.application.hmac_secret,
         )?;
 
         Ok(Self { port, server })
@@ -80,20 +83,23 @@ pub fn run(
     connection: DatabaseConnection,
     email_client: EmailClient,
     base_url: String,
+    hmac_secret: Secret<String>,
 ) -> Result<Serve<Router, Router>, std::io::Error> {
     let email_client = Arc::new(email_client);
     let state = AppState {
         connection,
         email_client,
         base_url,
+        hmac_secret: HmacSecret(hmac_secret),
     };
 
     let app = Router::new()
-        .route("/", get(|| async { "Hello, World!" }))
+        .route("/", get(home))
         .route("/health_check", get(health_check))
         .route("/subscriptions", post(subscribe))
         .route("/subscriptions/confirm", get(confirm))
         .route("/newsletters", post(publish_newsletter))
+        .route("/login", get(login_form).post(login))
         .layer(
             // thanks to https://github.com/tokio-rs/axum/discussions/2273
             tower::ServiceBuilder::new().layer(TraceLayer::new_for_http().make_span_with(
@@ -118,3 +124,6 @@ pub fn run(
     let server = axum::serve(listener, app);
     Ok(server)
 }
+
+#[derive(Clone)]
+pub struct HmacSecret(pub Secret<String>);

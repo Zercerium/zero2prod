@@ -1321,6 +1321,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "handlebars"
+version = "5.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ab283476b99e66691dee3f1640fea91487a8d81f50fb5ecc75538f8f8879a1e4"
+dependencies = [
+ "log",
+ "pest",
+ "pest_derive",
+ "serde",
+ "serde_json",
+ "thiserror",
+]
+
+[[package]]
 name = "hashbrown"
 version = "0.12.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1401,6 +1415,12 @@ checksum = "e3d1354bf6b7235cb4a0576c2619fd4ed18183f689b12b006a0ee7329eeff9a5"
 dependencies = [
  "windows-sys 0.52.0",
 ]
+
+[[package]]
+name = "htmlescape"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e9025058dae765dee5070ec375f591e2ba14638c63feff74f13805a72e523163"
 
 [[package]]
 name = "http"
@@ -4231,6 +4251,10 @@ dependencies = [
  "config",
  "entity",
  "fake",
+ "handlebars",
+ "hex",
+ "hmac",
+ "htmlescape",
  "linkify",
  "migration",
  "mimalloc",
@@ -4243,6 +4267,7 @@ dependencies = [
  "serde",
  "serde-aux",
  "serde_json",
+ "sha2",
  "strum 0.26.1",
  "thiserror",
  "time",
@@ -4253,6 +4278,7 @@ dependencies = [
  "tracing-bunyan-formatter",
  "tracing-subscriber",
  "unicode-segmentation",
+ "urlencoding",
  "uuid",
  "validator",
  "wiremock",

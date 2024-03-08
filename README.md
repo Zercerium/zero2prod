@@ -20,6 +20,8 @@ This repository contains the code from the book along with changes i made becaus
         - [ ] something goes wrong while email send api request
 - [ ] config validation
 - [x] testing if it works with mailersend
+- [ ] Authentication middleware to bubble up the UnexpectedError, we need to access the state for our hmac secret, which is needed to sign the response. This isn't possible in a IntoResponse trait, cause there is no access to the state. see also [here](https://github.com/tokio-rs/axum/discussions/2272)
+    - p. 454
 
 ## Docker
 
