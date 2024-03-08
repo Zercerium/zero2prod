@@ -5,7 +5,7 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     Form,
 };
-use axum_extra::extract::{cookie::Cookie, CookieJar};
+use axum_flash::Flash;
 use secrecy::Secret;
 
 use crate::{
@@ -21,12 +21,12 @@ pub struct FormData {
 }
 
 #[tracing::instrument(
-    skip(state, form),
+    skip(state, flash, form),
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn login(
     State(state): State<AppState>,
-    jar: CookieJar,
+    flash: Flash,
     Form(form): Form<FormData>,
 ) -> Response {
     // ) -> Result<Response, LoginError> {
@@ -50,10 +50,9 @@ pub async fn login(
                 AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
             };
 
-            let cookie = Cookie::new("_flash", e.to_string());
-            let jar = jar.add(cookie);
+            let flash = flash.error(e.to_string());
 
-            (jar, Redirect::to("/login")).into_response()
+            (flash, Redirect::to("/login")).into_response()
         }
     }
 }

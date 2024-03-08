@@ -1,13 +1,15 @@
 use axum::{
     body::Body,
+    extract::FromRef,
     http::Request,
     routing::{get, post},
     serve::Serve,
     Router,
 };
+use axum_flash::Key;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
-use secrecy::Secret;
+use secrecy::{ExposeSecret, Secret};
 use std::net::TcpListener;
 use std::sync::Arc;
 use tower_http::trace::TraceLayer;
@@ -23,7 +25,13 @@ pub struct AppState {
     pub connection: DatabaseConnection,
     pub email_client: Arc<EmailClient>,
     pub base_url: String,
-    pub hmac_secret: HmacSecret,
+    pub flash_config: axum_flash::Config,
+}
+
+impl FromRef<AppState> for axum_flash::Config {
+    fn from_ref(state: &AppState) -> axum_flash::Config {
+        state.flash_config.clone()
+    }
 }
 
 pub struct Application {
@@ -90,7 +98,10 @@ pub fn run(
         connection,
         email_client,
         base_url,
-        hmac_secret: HmacSecret(hmac_secret),
+        flash_config: axum_flash::Config::new(
+            Key::try_from(hmac_secret.expose_secret().as_bytes())
+                .expect("Key is not long enough (64 bytes)"),
+        ),
     };
 
     let app = Router::new()
