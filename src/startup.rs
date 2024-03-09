@@ -6,7 +6,7 @@ use axum::{
     serve::Serve,
     Router,
 };
-use axum_flash::Key;
+use axum_messages::MessagesManagerLayer;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
 use secrecy::{ExposeSecret, Secret};
@@ -39,13 +39,6 @@ pub struct AppState {
     pub connection: DatabaseConnection,
     pub email_client: Arc<EmailClient>,
     pub base_url: String,
-    pub flash_config: axum_flash::Config,
-}
-
-impl FromRef<AppState> for axum_flash::Config {
-    fn from_ref(state: &AppState) -> axum_flash::Config {
-        state.flash_config.clone()
-    }
 }
 
 pub struct Application {
@@ -115,10 +108,6 @@ async fn run(
         connection,
         email_client,
         base_url,
-        flash_config: axum_flash::Config::new(
-            Key::try_from(hmac_secret.expose_secret().as_bytes())
-                .expect("Key is not long enough (64 bytes)"),
-        ),
     };
 
     let mut redis_config = RedisConfig::default();
@@ -158,6 +147,7 @@ async fn run(
                 },
             )),
         )
+        .layer(MessagesManagerLayer)
         // `actix_session` needs a key which will be used for signing the session cookies
         // https://docs.rs/actix-session/latest/actix_session/struct.SessionMiddleware.html#method.new
         // this is not the case for `tower_sessions` see https://github.com/maxcountryman/tower-sessions/discussions/100

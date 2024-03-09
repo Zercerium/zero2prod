@@ -28,6 +28,7 @@ This repository contains the code from the book along with changes i made becaus
 - [ ] seed first admin from env variable on first startup
 - [ ] more startup logging
   - url, mode
+- [ ] [axum-flash](https://github.com/davidpdrsn/axum-flash) doesn't work in safari, lets check it out
 
 ## Docker
 

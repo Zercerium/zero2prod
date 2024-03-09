@@ -4,7 +4,7 @@ use axum::{
     response::{IntoResponse, Redirect, Response},
     Form,
 };
-use axum_flash::Flash;
+use axum_messages::Messages;
 use secrecy::Secret;
 
 use crate::{
@@ -26,7 +26,7 @@ pub struct FormData {
 )]
 pub async fn login(
     State(state): State<AppState>,
-    flash: Flash,
+    flash: Messages,
     session: TypedSession,
     Form(form): Form<FormData>,
 ) -> Result<Response, Response> {
@@ -55,13 +55,13 @@ pub async fn login(
 
             let flash = flash.error(e.to_string());
 
-            Err((flash, Redirect::to("/login")).into_response())
+            Err((Redirect::to("/login")).into_response())
         }
     }
 }
 
 // Redirect to the login page with an error message.
-fn login_redirect(flash: Flash, e: LoginError) -> Response {
+fn login_redirect(flash: Messages, e: LoginError) -> Response {
     flash.error(e.to_string());
     (Redirect::to("/login")).into_response()
 }

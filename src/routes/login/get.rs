@@ -1,13 +1,13 @@
 use axum::{http::StatusCode, response::Html};
-use axum_flash::{IncomingFlashes, Level};
+use axum_messages::{Level, Messages};
 use handlebars::Handlebars;
 use serde_json::json;
 use std::fmt::Write;
 
-pub async fn login_form(flashes: IncomingFlashes) -> (StatusCode, IncomingFlashes, Html<String>) {
+pub async fn login_form(flashes: Messages) -> (StatusCode, Html<String>) {
     let mut error_html = String::new();
-    for (_, text) in flashes.iter().filter(|(level, _)| *level == Level::Error) {
-        writeln!(error_html, "<p><i>{}</i></p>", text).unwrap();
+    for message in flashes.into_iter().filter(|m| m.level == Level::Error) {
+        writeln!(error_html, "<p><i>{}</i></p>", message.message).unwrap();
     }
 
     let login_form = include_str!("./login.html");
@@ -16,5 +16,5 @@ pub async fn login_form(flashes: IncomingFlashes) -> (StatusCode, IncomingFlashe
         .render_template(login_form, &json!({"error_html": error_html}))
         .expect("Failed to render login form.");
 
-    (StatusCode::OK, flashes, Html::from(login_form))
+    (StatusCode::OK, Html::from(login_form))
 }
