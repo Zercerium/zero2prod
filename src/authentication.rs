@@ -36,7 +36,7 @@ pub async fn validate_credentials(
     );
 
     if let Some((stored_user_id, stored_password_hash)) =
-        get_stored_credentials(&credentials.username, &conn).await?
+        get_stored_credentials(&credentials.username, conn).await?
     {
         user_id = Some(stored_user_id);
         expected_password_hash = stored_password_hash;

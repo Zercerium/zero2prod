@@ -117,7 +117,7 @@ pub async fn store_token(
     subscriptions_token
         .insert(txn)
         .await
-        .map_err(|err| StoreTokenError(err))?;
+        .map_err(StoreTokenError)?;
 
     Ok(())
 }

@@ -103,8 +103,8 @@ impl TestApp {
             confirmation_link
         };
 
-        let html = get_link(&body["html"].as_str().unwrap());
-        let plain_text = get_link(&body["text"].as_str().unwrap());
+        let html = get_link(body["html"].as_str().unwrap());
+        let plain_text = get_link(body["text"].as_str().unwrap());
         ConfirmationLinks { html, plain_text }
     }
 

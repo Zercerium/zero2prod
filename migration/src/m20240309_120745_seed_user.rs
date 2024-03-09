@@ -15,15 +15,10 @@ impl MigrationTrait for Migration {
             .into_table(Users::Table)
             .columns([Users::UserId, Users::Username, Users::PasswordHash])
             .values_panic([
-                Uuid::parse_str("ddf8994f-d522-4659-8d02-c1d479057be6")
-                    .unwrap()
-                    .into(),
+                Uuid::parse_str("ddf8994f-d522-4659-8d02-c1d479057be6").unwrap().into(),
                 "admin".into(),
-                "$argon2id$v=19$m=15000,t=2,p=1$OEx/rcq+3ts//'
-                'WUDzGNl2g$Am8UFBA4w5NJEmAtquGvBmAlu92q/VQcaoL5AyJPfc8"
-                    .into(),
-            ])
-            .to_owned();
+                "$argon2id$v=19$m=15000,t=2,p=1$JhfxpO1fmONv0vYq/Ff6Vg$+yVJk1EOgyuGlWx3Sj0E6pcNPlSfsc5Lhq9Luxi+biE".into(),
+            ]).to_owned();
 
         manager.exec_stmt(insert).await?;
 

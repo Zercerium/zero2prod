@@ -48,12 +48,13 @@ pub async fn login(
             Ok((StatusCode::SEE_OTHER, Redirect::to("/admin/dashboard")).into_response())
         }
         Err(e) => {
+            tracing::error!(error = %e, "Failed to authenticate.");
             let e = match e {
                 AuthError::InvalidCredentials(_) => LoginError::AuthError(e.into()),
                 AuthError::UnexpectedError(_) => LoginError::UnexpectedError(e.into()),
             };
 
-            let flash = flash.error(e.to_string());
+            let _flash = flash.error(e.to_string());
 
             Err((Redirect::to("/login")).into_response())
         }

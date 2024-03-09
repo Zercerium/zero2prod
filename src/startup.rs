@@ -1,6 +1,5 @@
 use axum::{
     body::Body,
-    extract::FromRef,
     http::Request,
     routing::{get, post},
     serve::Serve,
@@ -9,7 +8,7 @@ use axum::{
 use axum_messages::MessagesManagerLayer;
 use migration::{Migrator, MigratorTrait};
 use sea_orm::DatabaseConnection;
-use secrecy::{ExposeSecret, Secret};
+use secrecy::Secret;
 use std::net::TcpListener;
 use std::sync::Arc;
 use time::Duration;
@@ -100,7 +99,7 @@ async fn run(
     connection: DatabaseConnection,
     email_client: EmailClient,
     base_url: String,
-    hmac_secret: Secret<String>,
+    _hmac_secret: Secret<String>,
     redis: RedisSettings,
 ) -> Result<Serve<Router, Router>, anyhow::Error> {
     let email_client = Arc::new(email_client);
@@ -110,9 +109,11 @@ async fn run(
         base_url,
     };
 
-    let mut redis_config = RedisConfig::default();
-    redis_config.server = ServerConfig::Centralized {
-        server: fred::types::Server::new(redis.host, redis.port),
+    let redis_config = RedisConfig {
+        server: ServerConfig::Centralized {
+            server: fred::types::Server::new(redis.host, redis.port),
+        },
+        ..Default::default()
     };
     let redis_pool = RedisPool::new(redis_config, None, None, None, 6)?;
     let _redis_conn = redis_pool.connect();
