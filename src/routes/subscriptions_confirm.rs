@@ -3,7 +3,8 @@ use axum::{
     http::StatusCode,
 };
 use sea_orm::{
-    ActiveModelTrait, ColumnTrait, DbConn, DbErr, EntityTrait, IntoActiveModel, QueryFilter, Set,
+    ActiveModelTrait, ColumnTrait, DatabaseConnection, DbErr, EntityTrait, IntoActiveModel,
+    QueryFilter, Set,
 };
 use uuid::Uuid;
 
@@ -42,7 +43,10 @@ pub async fn confirm(
 }
 
 #[tracing::instrument(name = "Mark subscriber as confirmed", skip(connection, subscriber_id))]
-async fn confirm_subscriber(connection: &DbConn, subscriber_id: Uuid) -> Result<(), DbErr> {
+async fn confirm_subscriber(
+    connection: &DatabaseConnection,
+    subscriber_id: Uuid,
+) -> Result<(), DbErr> {
     let subscriber = Subscription::find_by_id(subscriber_id)
         .one(connection)
         .await
@@ -65,7 +69,7 @@ async fn confirm_subscriber(connection: &DbConn, subscriber_id: Uuid) -> Result<
     skip(connection, subscription_token)
 )]
 async fn get_subscriber_id_from_token(
-    connection: &DbConn,
+    connection: &DatabaseConnection,
     subscription_token: &str,
 ) -> Result<Option<Uuid>, DbErr> {
     let result = SubscriptionToken::find()

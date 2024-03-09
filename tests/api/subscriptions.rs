@@ -1,19 +1,11 @@
-use sea_orm::{ConnectionTrait, EntityTrait, FromQueryResult, QuerySelect, Statement};
+use entity::subscriptions::Entity as Subscriptions;
+use sea_orm::{ConnectionTrait, DerivePartialModel, EntityTrait, FromQueryResult, Statement};
 use wiremock::{
     matchers::{method, path},
     Mock, ResponseTemplate,
 };
 
-use entity::subscriptions::{self, Entity as Subscription};
-
 use crate::helpers::spawn_app;
-
-#[derive(FromQueryResult)]
-struct SubscriptionsNameEmail {
-    name: String,
-    email: String,
-    status: String,
-}
 
 #[tokio::test]
 async fn subscribe_returns_a_200_for_valid_form_data() {
@@ -47,14 +39,16 @@ async fn subscribe_persists_the_new_subscriber() {
     // Act
     app.post_subscriptions(body.into()).await;
     // Assert
-    let saved = Subscription::find()
-        .select_only()
-        .columns([
-            subscriptions::Column::Name,
-            subscriptions::Column::Email,
-            subscriptions::Column::Status,
-        ])
-        .into_model::<SubscriptionsNameEmail>()
+    #[derive(DerivePartialModel, FromQueryResult)]
+    #[sea_orm(entity = "Subscriptions")]
+    struct SubscriptionsNameEmail {
+        name: String,
+        email: String,
+        status: String,
+    }
+
+    let saved = Subscriptions::find()
+        .into_partial_model::<SubscriptionsNameEmail>()
         .one(&app.dp_pool)
         .await
         .expect("Failed to connect to Postgres.")

@@ -12,6 +12,14 @@ pub struct Settings {
     pub database: DatabaseSettings,
     pub application: ApplicationSettings,
     pub email_client: EmailClientSettings,
+    pub redis: RedisSettings,
+}
+
+#[derive(serde::Deserialize, Clone)]
+pub struct RedisSettings {
+    pub host: String,
+    #[serde(deserialize_with = "deserialize_number_from_string")]
+    pub port: u16,
 }
 
 #[derive(serde::Deserialize, Clone)]

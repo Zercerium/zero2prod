@@ -87,7 +87,7 @@ pub async fn publish_newsletter(
 ) -> Result<StatusCode, PublishError> {
     let credentials = basic_authentication(&headers).map_err(PublishError::AuthError)?;
     tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
-    let user_id = validate_credentials(credentials, &state.connection)
+    let _user_id = validate_credentials(credentials, &state.connection)
         .await
         .map_err(|e| match e {
             AuthError::InvalidCredentials(_) => PublishError::AuthError(e.into()),

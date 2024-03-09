@@ -1,3 +1,4 @@
+mod admin;
 mod health_check;
 mod home;
 mod login;
@@ -5,6 +6,7 @@ mod newsletters;
 mod subscriptions;
 mod subscriptions_confirm;
 
+pub use admin::*;
 use axum::response::{IntoResponse, Response};
 use axum_macros::FromRequest;
 pub use health_check::*;

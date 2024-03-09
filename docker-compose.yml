@@ -4,7 +4,7 @@ version: '3.9'
 services:
 
   db:
-    image: postgres:16
+    image: postgres:16-alpine
     restart: always
     shm_size: 128mb
     environment:
@@ -15,9 +15,16 @@ services:
       - "5432:5432" # This isnt needed and should be removed to not expose this port without a good reason
                     #, only here cause to test the db connection from the host machine and running tests fast
   
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379" # This isnt needed and should be removed to not expose this port without a good reason
+                    #, only here cause to test the redis connection from the host machine and running tests fast
+
+
   zero2prod:
     build: .
-    restart: always
+    restart: unless-stopped
     environment:
       APP_ENVIRONMENT: "production"
       APP_DATABASE__HOST: "db"
@@ -26,4 +33,5 @@ services:
       - "8000:8000"
     depends_on:
       - db
+      - redis
   

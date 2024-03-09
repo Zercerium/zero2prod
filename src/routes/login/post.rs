@@ -1,12 +1,12 @@
 use axum::{
-    body::Body,
     extract::State,
-    http::{header, StatusCode},
+    http::StatusCode,
     response::{IntoResponse, Redirect, Response},
     Form,
 };
 use axum_flash::Flash;
 use secrecy::Secret;
+use tower_sessions::Session;
 
 use crate::{
     authentication::{validate_credentials, AuthError, Credentials},
@@ -21,15 +21,15 @@ pub struct FormData {
 }
 
 #[tracing::instrument(
-    skip(state, flash, form),
+    skip(state, flash, session, form),
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn login(
     State(state): State<AppState>,
     flash: Flash,
+    session: Session,
     Form(form): Form<FormData>,
-) -> Response {
-    // ) -> Result<Response, LoginError> {
+) -> Result<Response, Response> {
     let credentials = Credentials {
         username: form.username,
         password: form.password,
@@ -38,11 +38,17 @@ pub async fn login(
     match validate_credentials(credentials, &state.connection).await {
         Ok(user_id) => {
             tracing::Span::current().record("user_id", &tracing::field::debug(&user_id));
-            Response::builder()
-                .status(StatusCode::SEE_OTHER)
-                .header(header::LOCATION, "/")
-                .body(Body::empty())
-                .unwrap()
+
+            let redirect = move |e: tower_sessions::session::Error| {
+                login_redirect(flash.clone(), LoginError::UnexpectedError(e.into()))
+            };
+            session.cycle_id().await.map_err(&redirect)?;
+            session
+                .insert("user_id", user_id)
+                .await
+                .map_err(&redirect)?;
+
+            Ok((StatusCode::SEE_OTHER, Redirect::to("/admin/dashboard")).into_response())
         }
         Err(e) => {
             let e = match e {
@@ -52,9 +58,15 @@ pub async fn login(
 
             let flash = flash.error(e.to_string());
 
-            (flash, Redirect::to("/login")).into_response()
+            Ok((flash, Redirect::to("/login")).into_response())
         }
     }
+}
+
+// Redirect to the login page with an error message.
+fn login_redirect(flash: Flash, e: LoginError) -> Response {
+    flash.error(e.to_string());
+    (Redirect::to("/login")).into_response()
 }
 
 #[derive(thiserror::Error)]
