@@ -2,26 +2,25 @@ use anyhow::Context;
 use axum::{
     extract::State,
     http::StatusCode,
-    response::{Html, IntoResponse, Response},
+    response::{Html, IntoResponse, Redirect, Response},
 };
 use entity::prelude::Users;
 use handlebars::Handlebars;
 use sea_orm::{DatabaseConnection, DerivePartialModel, EntityTrait, FromQueryResult};
-use tower_sessions::Session;
 use uuid::Uuid;
 
-use crate::startup::AppState;
+use crate::{session_state::TypedSession, startup::AppState};
 
 pub async fn admin_dashboard(
     State(state): State<AppState>,
-    mut session: Session,
+    session: TypedSession,
 ) -> Result<Response, StatusCode> {
-    let username = if let Some(user_id) = session.get::<Uuid>("user_id").await.map_err(e500)? {
+    let username = if let Some(user_id) = session.get_user_id().await.map_err(e500)? {
         get_username(user_id, &state.connection)
             .await
             .map_err(e500)?
     } else {
-        todo!()
+        return Ok(Redirect::to("/login").into_response());
     };
 
     let reg = Handlebars::new();

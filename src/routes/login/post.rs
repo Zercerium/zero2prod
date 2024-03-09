@@ -6,11 +6,11 @@ use axum::{
 };
 use axum_flash::Flash;
 use secrecy::Secret;
-use tower_sessions::Session;
 
 use crate::{
     authentication::{validate_credentials, AuthError, Credentials},
     routes::error_chain_fmt,
+    session_state::TypedSession,
     startup::AppState,
 };
 
@@ -27,7 +27,7 @@ pub struct FormData {
 pub async fn login(
     State(state): State<AppState>,
     flash: Flash,
-    session: Session,
+    session: TypedSession,
     Form(form): Form<FormData>,
 ) -> Result<Response, Response> {
     let credentials = Credentials {
@@ -43,10 +43,7 @@ pub async fn login(
                 login_redirect(flash.clone(), LoginError::UnexpectedError(e.into()))
             };
             session.cycle_id().await.map_err(&redirect)?;
-            session
-                .insert("user_id", user_id)
-                .await
-                .map_err(&redirect)?;
+            session.insert_user_id(user_id).await.map_err(&redirect)?;
 
             Ok((StatusCode::SEE_OTHER, Redirect::to("/admin/dashboard")).into_response())
         }
@@ -58,7 +55,7 @@ pub async fn login(
 
             let flash = flash.error(e.to_string());
 
-            Ok((flash, Redirect::to("/login")).into_response())
+            Err((flash, Redirect::to("/login")).into_response())
         }
     }
 }

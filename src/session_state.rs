@@ -11,8 +11,8 @@ pub struct TypedSession(Session);
 impl TypedSession {
     const USER_ID_KEY: &'static str = "user_id";
 
-    pub fn cycle_id(&self) {
-        self.0.cycle_id();
+    pub async fn cycle_id(&self) -> Result<(), tower_sessions::session::Error> {
+        self.0.cycle_id().await
     }
 
     pub async fn insert_user_id(
