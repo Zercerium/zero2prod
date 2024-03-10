@@ -1,15 +1,14 @@
 use axum::{
     extract::State,
     response::{IntoResponse, Redirect, Response},
-    Form,
+    Extension, Form,
 };
 use axum_messages::Messages;
 use secrecy::{ExposeSecret, Secret};
 
 use crate::{
-    authentication::{self, validate_credentials, AuthError, Credentials},
+    authentication::{self, validate_credentials, AuthError, Credentials, UserId},
     routes::admin::dashboard::get_username,
-    session_state::TypedSession,
     startup::AppState,
     utils::e500,
 };
@@ -23,15 +22,11 @@ pub struct FormData {
 
 pub async fn change_password(
     State(state): State<AppState>,
-    session: TypedSession,
     messages: Messages,
+    user_id: Extension<UserId>,
     Form(form): Form<FormData>,
 ) -> Result<Response, Response> {
-    let user_id = if let Some(user_id) = session.get_user_id().await.map_err(e500)? {
-        user_id
-    } else {
-        return Err(Redirect::to("/login").into_response());
-    };
+    let user_id = **user_id;
     if form.new_password.expose_secret() != form.new_password_check.expose_secret() {
         messages.error("You entered two different new passwords - the field values must match.");
         return Ok(Redirect::to("/admin/password").into_response());

@@ -1,6 +1,7 @@
 use axum::{
     body::Body,
     http::Request,
+    middleware,
     routing::{get, post},
     serve::Serve,
     Router,
@@ -12,6 +13,7 @@ use secrecy::Secret;
 use std::net::TcpListener;
 use std::sync::Arc;
 use time::Duration;
+use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
 use tower_sessions::{Expiry, SessionManagerLayer};
 use tower_sessions_redis_store::{
@@ -25,6 +27,7 @@ use tower_sessions_redis_store::{
 };
 
 use crate::{
+    authentication::reject_anonymous_users,
     configuration::{RedisSettings, Settings},
     email_client::EmailClient,
     routes::{
@@ -124,6 +127,12 @@ async fn run(
         .with_secure(false)
         .with_expiry(Expiry::OnInactivity(Duration::seconds(10)));
 
+    let admin_routes = Router::new()
+        .route("/dashboard", get(admin_dashboard))
+        .route("/password", get(change_password_form).post(change_password))
+        .route("/logout", post(log_out))
+        .layer(middleware::from_fn(reject_anonymous_users));
+
     let app = Router::new()
         .route("/", get(home))
         .route("/health_check", get(health_check))
@@ -131,35 +140,31 @@ async fn run(
         .route("/subscriptions/confirm", get(confirm))
         .route("/newsletters", post(publish_newsletter))
         .route("/login", get(login_form).post(login))
-        .route("/admin/dashboard", get(admin_dashboard))
-        .route(
-            "/admin/password",
-            get(change_password_form).post(change_password),
-        )
-        .route("/admin/logout", post(log_out))
+        .nest("/admin", admin_routes)
         .layer(
-            // thanks to https://github.com/tokio-rs/axum/discussions/2273
-            tower::ServiceBuilder::new().layer(TraceLayer::new_for_http().make_span_with(
-                |request: &Request<Body>| {
-                    let request_id = uuid::Uuid::new_v4();
-                    tracing::span!(
-                        tracing::Level::INFO,
-                        "request",
-                        method = tracing::field::display(request.method()),
-                        uri = tracing::field::display(request.uri()),
-                        version = tracing::field::debug(request.version()),
-                        request_id = tracing::field::display(request_id)
-                    )
-                },
-            )),
+            ServiceBuilder::new()
+                .layer(
+                    // thanks to https://github.com/tokio-rs/axum/discussions/2273
+                    TraceLayer::new_for_http().make_span_with(|request: &Request<Body>| {
+                        let request_id = uuid::Uuid::new_v4();
+                        tracing::span!(
+                            tracing::Level::INFO,
+                            "request",
+                            method = tracing::field::display(request.method()),
+                            uri = tracing::field::display(request.uri()),
+                            version = tracing::field::debug(request.version()),
+                            request_id = tracing::field::display(request_id)
+                        )
+                    }),
+                )
+                // `actix_session` needs a key which will be used for signing the session cookies
+                // https://docs.rs/actix-session/latest/actix_session/struct.SessionMiddleware.html#method.new
+                // this is not the case for `tower_sessions` see https://github.com/maxcountryman/tower-sessions/discussions/100
+                // > tower-sessions doesn't provide signing because no data is stored in the cookie.
+                // > In other words, the cookie value is a pointer to the data stored server side.
+                .layer(session_layer)
+                .layer(MessagesManagerLayer),
         )
-        .layer(MessagesManagerLayer)
-        // `actix_session` needs a key which will be used for signing the session cookies
-        // https://docs.rs/actix-session/latest/actix_session/struct.SessionMiddleware.html#method.new
-        // this is not the case for `tower_sessions` see https://github.com/maxcountryman/tower-sessions/discussions/100
-        // > tower-sessions doesn't provide signing because no data is stored in the cookie.
-        // > In other words, the cookie value is a pointer to the data stored server side.
-        .layer(session_layer)
         .with_state(state);
 
     listener.set_nonblocking(true)?;
