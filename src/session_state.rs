@@ -25,6 +25,10 @@ impl TypedSession {
     pub async fn get_user_id(&self) -> Result<Option<Uuid>, tower_sessions::session::Error> {
         self.0.get(Self::USER_ID_KEY).await
     }
+
+    pub async fn log_out(self) -> Result<(), tower_sessions::session::Error> {
+        self.0.flush().await
+    }
 }
 
 #[async_trait]

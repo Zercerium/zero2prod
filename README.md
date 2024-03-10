@@ -29,6 +29,8 @@ This repository contains the code from the book along with changes i made becaus
 - [ ] more startup logging
   - url, mode
 - [ ] [axum-flash](https://github.com/davidpdrsn/axum-flash) doesn't work in safari, lets check it out
+- [ ] p. 501 write a middleware to protect all admin endpoints (so you don't have to check every time if the user is logged in)
+- [ ] p. 508 check password strength
 
 ## Docker
 

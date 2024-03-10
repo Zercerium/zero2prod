@@ -28,8 +28,8 @@ use crate::{
     configuration::{RedisSettings, Settings},
     email_client::EmailClient,
     routes::{
-        admin_dashboard, confirm, health_check, home, login, login_form, publish_newsletter,
-        subscribe,
+        admin_dashboard, change_password, change_password_form, confirm, health_check, home,
+        log_out, login, login_form, publish_newsletter, subscribe,
     },
 };
 
@@ -132,6 +132,11 @@ async fn run(
         .route("/newsletters", post(publish_newsletter))
         .route("/login", get(login_form).post(login))
         .route("/admin/dashboard", get(admin_dashboard))
+        .route(
+            "/admin/password",
+            get(change_password_form).post(change_password),
+        )
+        .route("/admin/logout", post(log_out))
         .layer(
             // thanks to https://github.com/tokio-rs/axum/discussions/2273
             tower::ServiceBuilder::new().layer(TraceLayer::new_for_http().make_span_with(

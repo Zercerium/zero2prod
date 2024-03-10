@@ -9,12 +9,12 @@ use handlebars::Handlebars;
 use sea_orm::{DatabaseConnection, DerivePartialModel, EntityTrait, FromQueryResult};
 use uuid::Uuid;
 
-use crate::{session_state::TypedSession, startup::AppState};
+use crate::{session_state::TypedSession, startup::AppState, utils::e500};
 
 pub async fn admin_dashboard(
     State(state): State<AppState>,
     session: TypedSession,
-) -> Result<Response, StatusCode> {
+) -> Result<Response, Response> {
     let username = if let Some(user_id) = session.get_user_id().await.map_err(e500)? {
         get_username(user_id, &state.connection)
             .await
@@ -34,16 +34,11 @@ pub async fn admin_dashboard(
     Ok((StatusCode::OK, Html::from(html)).into_response())
 }
 
-fn e500<T>(e: T) -> StatusCode
-where
-    T: std::fmt::Debug + std::fmt::Display + 'static,
-{
-    tracing::error!("{:?}", e);
-    StatusCode::INTERNAL_SERVER_ERROR
-}
-
 #[tracing::instrument(name = "Get username", skip(conn))]
-async fn get_username(user_id: Uuid, conn: &DatabaseConnection) -> Result<String, anyhow::Error> {
+pub async fn get_username(
+    user_id: Uuid,
+    conn: &DatabaseConnection,
+) -> Result<String, anyhow::Error> {
     #[derive(DerivePartialModel, FromQueryResult)]
     #[sea_orm(entity = "Users")]
     struct Row {
