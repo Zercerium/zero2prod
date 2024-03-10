@@ -32,11 +32,14 @@ This repository contains the code from the book along with changes i made becaus
 - [ ] p. 501 write a middleware to protect all admin endpoints (so you don't have to check every time if the user is logged in)
 - [ ] p. 508 check password strength
 - [ ] look into the different possibilities to implement middlewares with axum :D
-- [ ] Chapter 10 Summary opportunities
-  - [ ] Add a Send a newsletter issue link to the admin dashboard
-  - [ ] Add an HTML form at GET /admin/newsletters to submit a new issue
-  - [ ] Adapt POST /newsletters to process the form data - [ ] Change the route to POST /admin/newsletters - [ ] Migrate from ‘Basic’ to session-based authentication - [ ] Use the Form extractor (application/x-www-form-urlencoded) instead of the Json extractor
-        (application/json) to handle the request body - [ ] Adapt the test suite.
+- [x] Chapter 10 Summary opportunities
+  - [x] Add a Send a newsletter issue link to the admin dashboard
+  - [x] Add an HTML form at GET /admin/newsletters to submit a new issue
+  - [x] Adapt POST /newsletters to process the form data
+    - [x] Change the route to POST /admin/newsletters
+    - [x] Migrate from ‘Basic’ to session-based authentication
+    - [x] Use the Form extractor (application/x-www-form-urlencoded) instead of the Json extractor (application/json) to handle the request body
+    - [x] Adapt the test suite.
 
 ## Docker
 

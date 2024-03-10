@@ -32,7 +32,7 @@ use crate::{
     email_client::EmailClient,
     routes::{
         admin_dashboard, change_password, change_password_form, confirm, health_check, home,
-        log_out, login, login_form, publish_newsletter, subscribe,
+        log_out, login, login_form, publish_newsletter, publish_newsletter_form, subscribe,
     },
 };
 
@@ -131,6 +131,10 @@ async fn run(
         .route("/dashboard", get(admin_dashboard))
         .route("/password", get(change_password_form).post(change_password))
         .route("/logout", post(log_out))
+        .route(
+            "/newsletters",
+            get(publish_newsletter_form).post(publish_newsletter),
+        )
         .layer(middleware::from_fn(reject_anonymous_users));
 
     let app = Router::new()
@@ -138,7 +142,6 @@ async fn run(
         .route("/health_check", get(health_check))
         .route("/subscriptions", post(subscribe))
         .route("/subscriptions/confirm", get(confirm))
-        .route("/newsletters", post(publish_newsletter))
         .route("/login", get(login_form).post(login))
         .nest("/admin", admin_routes)
         .layer(

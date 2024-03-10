@@ -4,7 +4,7 @@ use handlebars::Handlebars;
 use serde_json::json;
 use std::fmt::Write;
 
-pub async fn change_password_form(messages: Messages) -> Result<Response, Response> {
+pub async fn publish_newsletter_form(messages: Messages) -> Response {
     let mut msg_html = String::new();
     for m in messages.into_iter() {
         writeln!(msg_html, "<p><i>{}</i></p>", m.message).unwrap();
@@ -20,5 +20,5 @@ pub async fn change_password_form(messages: Messages) -> Result<Response, Respon
         )
         .expect("Failed to render password page.");
 
-    Ok(Html::from(html).into_response())
+    Html::from(html).into_response()
 }

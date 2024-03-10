@@ -77,6 +77,24 @@ pub struct ConfirmationLinks {
 }
 
 impl TestApp {
+    pub async fn login(&self) {
+        let login_body = serde_json::json!({ "username": &self.test_user.username, "password": &self.test_user.password});
+        let _ = self
+            .post_login(&login_body)
+            .await
+            .error_for_status()
+            .unwrap();
+    }
+
+    pub async fn logout(&self) {
+        let _ = self
+            .api_client
+            .get(&format!("{}/admin/logout", &self.address))
+            .send()
+            .await
+            .unwrap();
+    }
+
     pub async fn post_subscriptions(&self, body: String) -> reqwest::Response {
         self.api_client
             .post(&format!("{}/subscriptions", &self.address))
@@ -110,9 +128,9 @@ impl TestApp {
 
     pub async fn post_newsletters(&self, body: serde_json::Value) -> reqwest::Response {
         self.api_client
-            .post(&format!("{}/newsletters", &self.address))
+            .post(&format!("{}/admin/newsletters", &self.address))
             .basic_auth(&self.test_user.username, Some(&self.test_user.password))
-            .json(&body)
+            .form(&body)
             .send()
             .await
             .expect("Failed to execute request.")
@@ -139,6 +157,14 @@ impl TestApp {
             .text()
             .await
             .unwrap()
+    }
+
+    pub async fn get_newsletter(&self) -> reqwest::Response {
+        self.api_client
+            .get(&format!("{}/admin/newsletters", &self.address))
+            .send()
+            .await
+            .expect("Failed to execute request.")
     }
 
     pub async fn get_admin_dashboard(&self) -> reqwest::Response {

@@ -1,37 +1,30 @@
+use std::ops::Deref;
+
 use anyhow::Context;
 use axum::{
     extract::State,
     http::{header, HeaderMap, HeaderValue, StatusCode},
     response::{IntoResponse, Response},
-    Json,
+    Extension, Form,
 };
-use base64::Engine;
 use entity::subscriptions::{self, Entity as Subscriptions};
 use sea_orm::{
     ColumnTrait, DatabaseConnection, DerivePartialModel, EntityTrait, FromQueryResult, QueryFilter,
 };
-use secrecy::Secret;
 use serde::Serialize;
 
 use crate::{
-    authentication::{validate_credentials, AuthError, Credentials},
+    authentication::UserId,
     domain::SubscriberEmail,
-    routes::AppJson,
+    routes::{error_chain_fmt, AppJson},
     startup::AppState,
 };
 
-use super::error_chain_fmt;
-
 #[derive(serde::Deserialize)]
-pub struct BodyData {
+pub struct FormData {
     title: String,
-    content: Content,
-}
-
-#[derive(serde::Deserialize)]
-pub struct Content {
-    html: String,
-    text: String,
+    content_html: String,
+    content_txt: String,
 }
 
 struct ConfirmedSubscriber {
@@ -77,22 +70,15 @@ impl IntoResponse for PublishError {
 
 #[tracing::instrument(
     name = "Publish a newsletter issue",
-    skip(state, headers, body),
+    skip(state, body),
     fields(username=tracing::field::Empty, user_id=tracing::field::Empty)
 )]
 pub async fn publish_newsletter(
     State(state): State<AppState>,
-    headers: HeaderMap,
-    Json(body): Json<BodyData>,
+    user_id: Extension<UserId>,
+    Form(body): Form<FormData>,
 ) -> Result<StatusCode, PublishError> {
-    let credentials = basic_authentication(&headers).map_err(PublishError::AuthError)?;
-    tracing::Span::current().record("username", &tracing::field::display(&credentials.username));
-    let _user_id = validate_credentials(credentials, &state.connection)
-        .await
-        .map_err(|e| match e {
-            AuthError::InvalidCredentials(_) => PublishError::AuthError(e.into()),
-            AuthError::UnexpectedError(_) => PublishError::UnexpectedError(e.into()),
-        })?;
+    tracing::info!("Publishing a newsletter issue: {}", user_id.deref());
     let subscribers = get_confirmed_subscribers(&state.connection).await?;
     for subscriber in subscribers {
         match subscriber {
@@ -102,8 +88,8 @@ pub async fn publish_newsletter(
                     .send_email(
                         &subscriber.email,
                         &body.title,
-                        &body.content.html,
-                        &body.content.text,
+                        &body.content_html,
+                        &body.content_txt,
                     )
                     .await
                     .with_context(|| {
@@ -120,37 +106,6 @@ pub async fn publish_newsletter(
         }
     }
     Ok(StatusCode::OK)
-}
-
-fn basic_authentication(headers: &HeaderMap) -> Result<Credentials, anyhow::Error> {
-    let header_value = headers
-        .get("Authorization")
-        .context("The 'Authorization' header was missing")?
-        .to_str()
-        .context("The 'Authorization' header was not a valid UTF7 string.")?;
-    let base64encoded_segment = header_value
-        .strip_prefix("Basic ")
-        .context("The authorization scheme was not 'Basic'.")?;
-    let decoded_bytes = base64::engine::general_purpose::STANDARD
-        .decode(base64encoded_segment)
-        .context("Failed to base64-decode 'Basic' credentials.")?;
-    let decoded_credentials = String::from_utf8(decoded_bytes)
-        .context("The decoded credential string is not valid UTF8")?;
-
-    let mut credentials = decoded_credentials.splitn(2, ':');
-    let username = credentials
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("A username must be provided in 'Basic' auth."))?
-        .to_string();
-    let password = credentials
-        .next()
-        .ok_or_else(|| anyhow::anyhow!("A password must be provided in 'Basic' auth."))?
-        .to_string();
-
-    Ok(Credentials {
-        username,
-        password: Secret::new(password),
-    })
 }
 
 #[tracing::instrument(name = "Get confirmed subscribers", skip(conn))]
